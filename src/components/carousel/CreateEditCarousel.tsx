@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { XMarkIcon, PhotoIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import { CarouselItem, CreateEditCarouselData } from '../../types/carousel';
@@ -23,11 +23,12 @@ const CreateEditCarousel: React.FC<CreateEditCarouselProps> = ({
   isLoading = false
 }) => {
   const [title, setTitle] = useState(initialData?.title || '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || '');
+  const [previewUrl, setPreviewUrl] = useState(initialData?.imageUrl || '');
   const [link, setLink] = useState(initialData?.link || '');
   const [order, setOrder] = useState(initialData?.order || 0);
   const [active, setActive] = useState(initialData?.active ?? true);
-  const [previewUrl, setPreviewUrl] = useState<string>(initialData?.imageUrl || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,11 +55,14 @@ const CreateEditCarousel: React.FC<CreateEditCarouselProps> = ({
           toast.error(`建议上传尺寸不小于 ${RECOMMENDED_WIDTH}x${RECOMMENDED_HEIGHT} 的图片`);
         }
 
+        // 保存文件对象
+        setImageFile(file);
+        setImageUrl('');  // 清除原有的URL
+        
+        // 创建预览URL
         const reader = new FileReader();
         reader.onloadend = () => {
-          const base64String = reader.result as string;
-          setImageUrl(base64String);
-          setPreviewUrl(base64String);
+          setPreviewUrl(reader.result as string);
         };
         reader.readAsDataURL(file);
       };
@@ -67,27 +71,45 @@ const CreateEditCarousel: React.FC<CreateEditCarouselProps> = ({
     }
   };
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSubmit = useCallback(() => {
     if (!title.trim()) {
-      toast.error('标题不能为空');
+      toast.error('请输入标题');
       return;
     }
 
-    if (!imageUrl) {
-      toast.error('请上传Banner图片');
+    if (!imageFile && !imageUrl) {
+      toast.error('请上传图片');
       return;
     }
 
     onSubmit({
       title: title.trim(),
-      imageUrl,
+      imageUrl: imageFile || imageUrl,  // 如果有新文件就用文件，否则用原URL
       link: link.trim(),
       order,
       active
     });
-  }, [title, imageUrl, link, order, active, onSubmit]);
+  }, [title, imageFile, imageUrl, link, order, active, onSubmit]);
+
+  useEffect(() => {
+    if (isOpen && initialData) {
+      setTitle(initialData.title);
+      setImageFile(null);  // 清除之前的文件
+      setImageUrl(initialData.imageUrl);
+      setPreviewUrl(initialData.imageUrl);
+      setLink(initialData.link || '');
+      setOrder(initialData.order);
+      setActive(initialData.active);
+    } else if (!isOpen) {
+      setTitle('');
+      setImageFile(null);
+      setImageUrl('');
+      setPreviewUrl('');
+      setLink('');
+      setOrder(0);
+      setActive(true);
+    }
+  }, [isOpen, initialData]);
 
   if (!isOpen) return null;
 
@@ -107,7 +129,7 @@ const CreateEditCarousel: React.FC<CreateEditCarouselProps> = ({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 标题 *

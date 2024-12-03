@@ -37,10 +37,9 @@ function Carousel() {
       formData.append('order', String(data.order));
       formData.append('active', String(data.active));
 
-      // 如果imageUrl是Base64字符串，说明是新上传的图片
-      if (data.imageUrl.startsWith('data:')) {
-        const blob = await fetch(data.imageUrl).then(res => res.blob());
-        formData.append('image', blob, 'image.jpg');
+      // 如果 imageUrl 是 File 对象，说明是新上传的图片
+      if (data.imageUrl instanceof File) {
+        formData.append('image', data.imageUrl);
       }
 
       if (editingItem) {

@@ -2,12 +2,11 @@ export interface Article {
   _id: string;
   title: string;
   content: string;
-  coverImage: string;
   category: string;
   tags: string[];
-  views: number;
-  likes: number;
+  coverImage?: string;
   isPublished: boolean;
+  views: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,19 +18,22 @@ export interface ArticleListResponse {
   items: Article[];
 }
 
-export interface CreateArticleData {
-  title: string;
-  content: string;
-  category: string;
-  tags?: string[];
-  coverImage?: string;
-  isPublished?: boolean;
-}
+export interface CreateEditArticleData extends FormData {}
 
-export type UpdateArticleData = Partial<CreateArticleData>;
+// 为了兼容性，保留旧的类型名称
+export type CreateArticleData = CreateEditArticleData;
+export type UpdateArticleData = Partial<CreateEditArticleData>;
 
 export interface ApiResponse<T = any> {
   success: boolean;
   message?: string;
-  data?: T;
+  data: T;  // 改为必需字段
+}
+
+export interface ArticleQuery {
+  page?: number;
+  limit?: number;
+  category?: string;
+  tag?: string;
+  keyword?: string;
 }

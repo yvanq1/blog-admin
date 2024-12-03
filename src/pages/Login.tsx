@@ -93,7 +93,7 @@ function Login() {
         </form>
         <div className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
           默认账号：admin@example.com<br />
-          默认密码：admin123456
+          默认密码：admin123
         </div>
       </div>
     </div>

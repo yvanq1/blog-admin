@@ -22,6 +22,10 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
   (response) => {
+    if (response.data.success === false) {
+      toast.error(response.data.message || '请求失败');
+      return Promise.reject(new Error(response.data.message));
+    }
     return response.data;
   },
   (error) => {
@@ -34,18 +38,18 @@ instance.interceptors.response.use(
 
 // 封装请求方法
 export const request = {
-  get: <T>(url: string, config?: AxiosRequestConfig): Promise<T> =>
-    instance.get(url, config),
+  get: <T>(url: string, config?: AxiosRequestConfig) =>
+    instance.get<T, T>(url, config),
 
-  post: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
-    instance.post(url, data, config),
+  post: <T>(url: string, data?: any, config?: AxiosRequestConfig) =>
+    instance.post<T, T>(url, data, config),
 
-  put: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
-    instance.put(url, data, config),
+  put: <T>(url: string, data?: any, config?: AxiosRequestConfig) =>
+    instance.put<T, T>(url, data, config),
 
-  delete: <T>(url: string, config?: AxiosRequestConfig): Promise<T> =>
-    instance.delete(url, config),
+  delete: <T>(url: string, config?: AxiosRequestConfig) =>
+    instance.delete<T, T>(url, config),
 
-  patch: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
-    instance.patch(url, data, config),
+  patch: <T>(url: string, data?: any, config?: AxiosRequestConfig) =>
+    instance.patch<T, T>(url, data, config),
 };
