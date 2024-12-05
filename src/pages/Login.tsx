@@ -19,7 +19,7 @@ function Login() {
     try {
       const response = await adminLogin({ email, password });
       if (response.success) {
-        setAdmin(response.data);
+        setAdmin(response.data.admin);
         toast.success('登录成功');
         navigate('/');
       } else {

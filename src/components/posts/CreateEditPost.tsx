@@ -153,23 +153,140 @@ const CreateEditPost: React.FC<Props> = ({
 
   const handlePaste = async (event: React.ClipboardEvent) => {
     const items = event.clipboardData?.items;
-    if (!items) return;
+    const text = event.clipboardData?.getData('text/plain');
+    const html = event.clipboardData?.getData('text/html');
 
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          event.preventDefault();
-          const markdownImage = await handleImageUpload(file);
-          if (markdownImage) {
-            const textarea = document.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement;
-            if (textarea) {
-              const { selectionStart, selectionEnd } = textarea;
-              const newContent = content.slice(0, selectionStart) + markdownImage + content.slice(selectionEnd);
-              setContent(newContent);
+    // 处理图片粘贴
+    if (items) {
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            event.preventDefault();
+            const markdownImage = await handleImageUpload(file);
+            if (markdownImage) {
+              const textarea = document.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement;
+              if (textarea) {
+                const { selectionStart, selectionEnd } = textarea;
+                const newContent = content.slice(0, selectionStart) + markdownImage + content.slice(selectionEnd);
+                setContent(newContent);
+                return;
+              }
             }
           }
         }
+      }
+    }
+
+    // 处理HTML内容，优先从HTML中提取格式
+    if (html) {
+      event.preventDefault();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      let convertedText = '';
+      const processNode = (node: Node) => {
+        switch (node.nodeType) {
+          case Node.ELEMENT_NODE:
+            const element = node as Element;
+            switch (element.tagName.toLowerCase()) {
+              case 'h1':
+                convertedText += '# ' + (element.textContent || '') + '\n\n';
+                break;
+              case 'h2':
+                convertedText += '## ' + (element.textContent || '') + '\n\n';
+                break;
+              case 'h3':
+                convertedText += '### ' + (element.textContent || '') + '\n\n';
+                break;
+              case 'p':
+                convertedText += (element.textContent || '') + '\n\n';
+                break;
+              case 'strong':
+              case 'b':
+                convertedText += '**' + (element.textContent || '') + '**';
+                break;
+              case 'em':
+              case 'i':
+                convertedText += '*' + (element.textContent || '') + '*';
+                break;
+              case 'code':
+                if (element.parentElement?.tagName.toLowerCase() === 'pre') {
+                  convertedText += '```\n' + (element.textContent || '') + '\n```\n\n';
+                } else {
+                  convertedText += '`' + (element.textContent || '') + '`';
+                }
+                break;
+              case 'pre':
+                if (!element.querySelector('code')) {
+                  convertedText += '```\n' + (element.textContent || '') + '\n```\n\n';
+                }
+                break;
+              case 'a':
+                const href = element.getAttribute('href') || '';
+                convertedText += '[' + (element.textContent || '') + '](' + href + ')';
+                break;
+              case 'ul':
+              case 'ol':
+                element.childNodes.forEach((child, index) => {
+                  if (child.nodeType === Node.ELEMENT_NODE && child.nodeName.toLowerCase() === 'li') {
+                    const prefix = element.tagName.toLowerCase() === 'ul' ? '- ' : `${index + 1}. `;
+                    convertedText += prefix + ((child as Element).textContent || '') + '\n';
+                  }
+                });
+                convertedText += '\n';
+                break;
+              case 'blockquote':
+                const text = element.textContent || '';
+                convertedText += '> ' + text.split('\n').join('\n> ') + '\n\n';
+                break;
+              case 'img':
+                const src = element.getAttribute('src') || '';
+                const alt = element.getAttribute('alt') || '';
+                convertedText += `![${alt}](${src})\n\n`;
+                break;
+              case 'table':
+                const rows = element.querySelectorAll('tr');
+                rows.forEach((row, rowIndex) => {
+                  const cells = row.querySelectorAll('td, th');
+                  convertedText += '|' + Array.from(cells).map(cell => cell.textContent?.trim() || '').join('|') + '|\n';
+                  if (rowIndex === 0) {
+                    convertedText += '|' + Array.from(cells).map(() => '---').join('|') + '|\n';
+                  }
+                });
+                convertedText += '\n';
+                break;
+              default:
+                element.childNodes.forEach(processNode);
+            }
+            break;
+          case Node.TEXT_NODE:
+            if (node.parentElement?.tagName.toLowerCase() === 'pre' ||
+                node.parentElement?.tagName.toLowerCase() === 'code') {
+              convertedText += node.textContent;
+            } else {
+              convertedText += node.textContent?.replace(/\n\s*/g, ' ');
+            }
+            break;
+        }
+      };
+
+      doc.body.childNodes.forEach(processNode);
+      
+      // 插入转换后的内容
+      const textarea = document.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement;
+      if (textarea) {
+        const { selectionStart, selectionEnd } = textarea;
+        const newContent = content.slice(0, selectionStart) + convertedText.trim() + content.slice(selectionEnd);
+        setContent(newContent);
+      }
+    } else if (text) {
+      // 如果已经是Markdown格式，直接使用
+      const textarea = document.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement;
+      if (textarea) {
+        const { selectionStart, selectionEnd } = textarea;
+        const newContent = content.slice(0, selectionStart) + text + content.slice(selectionEnd);
+        setContent(newContent);
       }
     }
   };
@@ -259,7 +376,7 @@ const CreateEditPost: React.FC<Props> = ({
           <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
         </div>
         <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
-        <div className="inline-block transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl sm:p-6 sm:align-middle">
+        <div className="inline-block transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-[90%] sm:p-6 sm:align-middle">
           <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
             <button
               type="button"
@@ -387,8 +504,8 @@ const CreateEditPost: React.FC<Props> = ({
                 <MDEditor
                   value={content}
                   onChange={value => setContent(value || '')}
-                  height={500}
-                  className={uploadingImage ? 'opacity-50 pointer-events-none' : ''}
+                  height={800}
+                  className={`${uploadingImage ? 'opacity-50 pointer-events-none' : ''} min-h-[800px] w-full`}
                   commands={[
                     commands.group([imageUploadCommand], {
                       name: 'upload',
@@ -398,6 +515,21 @@ const CreateEditPost: React.FC<Props> = ({
                     ...commands.getCommands()
                   ]}
                   onPaste={handlePaste}
+                  preview="live"
+                  previewOptions={{
+                    transformImageUri: (uri: string) => {
+                      // 如果是相对路径，转换为绝对路径
+                      if (uri.startsWith('/')) {
+                        return `${process.env.REACT_APP_API_URL}${uri}`;
+                      }
+                      return uri;
+                    }
+                  }}
+                  extraCommands={[
+                    commands.codeEdit,
+                    commands.codeLive,
+                    commands.codePreview
+                  ]}
                 />
                 {uploadingImage && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
